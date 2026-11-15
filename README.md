@@ -14,14 +14,14 @@ macOS turns Night Shift off every morning and won't let you schedule it around t
   | Method | Warmest | Can dim | Notes |
   | --- | --- | --- | --- |
   | Night Shift | 2700 K | No | Default. Apple's own, with the most natural-looking colors. |
-  | Gamma | 1200 K | Yes | Same technique as f.lux. Changes each display's color curve. Can look more like an orange filter. |
+  | Gamma | 1200 K | Yes | Changes each display's color curve. Can look more like an orange filter. |
   | Color Filter | 1200 K | No | Uses Accessibility › Color Filters › Color Tint, which is applied at the very end of the display pipeline. |
 
   Gamma and Color Filter hold Night Shift off while they run so the tints don't stack, and switch it back on when you leave them.
 - **Warmth presets** from 5500 K down to 1200 K, and **brightness** down to 25% for late nights.
 - **Pause** for 15 minutes, an hour, or until you resume, when you need true colors for a photo or a design.
 - **Global shortcuts:** `⌃⌥⇧N` toggles warming. `⌃⌥⇧↓` and `⌃⌥⇧↑` make it warmer or cooler.
-- **Keep screen awake.** Keeps the computer and display awake like Caffeine, and also stops the screen saver from kicking in by nudging the pointer by zero pixels after 20 seconds of idle, which is the part Caffeine misses. Click the sheep in the menu bar to switch it on or off: it jumps while keeping the screen awake and stands still when it isn't. Right-click the sheep for everything else.
+- **Keep screen awake.** Keeps the computer and display awake, and stops the screen saver from kicking in. Blocking sleep alone doesn't stop the screen saver, so Dozy also nudges the pointer by zero pixels after 20 seconds of idle. Click the sheep in the menu bar to switch it on or off: it jumps while keeping the screen awake and stands still when it isn't. Right-click the sheep for everything else.
 - **Launch at login.**
 - **Close to zero load.** Dozy sleeps until the system reports a change, so it wakes about twice a minute and uses no measurable CPU. The tint is applied by the display hardware, so it adds no GPU work. The app is about 600 KB and uses 8 to 10 MB of memory, close to the minimum for any app with a menu bar icon.
 - **Leaves no mess.** On quit, Dozy puts your gamma and color-filter settings back exactly as they were. Night Shift stays on, because that's the point.

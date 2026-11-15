@@ -10,7 +10,7 @@ use crate::color::{MIN_KELVIN, NEUTRAL_KELVIN};
 pub enum EngineKind {
     /// macOS Night Shift, held on around the clock. Apple's color handling, but stops at 2700 K. The default.
     NightShift,
-    /// Display gamma tables, the way f.lux does it. Reaches 1200 K, can dim below minimum brightness.
+    /// Display gamma tables. Reaches 1200 K, can dim below minimum brightness.
     Gamma,
     /// Accessibility color filter (Color Tint). Applied at the very end of the pipeline.
     ColorFilter,
