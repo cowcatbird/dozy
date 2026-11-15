@@ -1,0 +1,26 @@
+[package]
+name = "dozy"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+dirs = "7.0.0"
+global-hotkey = "0.10.0"
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+tray-icon = "0.26.1"
+
+[build-dependencies]
+cc = "1.11.2"
+
+[target."cfg(windows)".dependencies]
+# Windows keeps tao for its event loop; macOS runs NSApplication directly (src/runloop.rs).
+tao = "0.37.2"
+windows-sys = { version = "0.61.2", features = ["Win32_Graphics_Gdi", "Win32_UI_ColorSystem", "Win32_System_Registry", "Win32_Foundation", "Win32_UI_Shell", "Win32_UI_WindowsAndMessaging", "Win32_System_Power", "Win32_System_SystemInformation", "Win32_UI_Input_KeyboardAndMouse"] }
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
