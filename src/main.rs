@@ -1,17 +1,14 @@
-#![cfg_attr(windows, windows_subsystem = "windows")]
+#[cfg(not(target_os = "macos"))]
+compile_error!("Dozy is macOS-only.");
 
 mod app;
 mod awake;
 mod autostart;
 mod color;
 mod engine;
+mod macos;
 mod runloop;
 mod settings;
-
-#[cfg(target_os = "macos")]
-mod macos;
-#[cfg(windows)]
-mod windows;
 
 fn main() {
     app::run();

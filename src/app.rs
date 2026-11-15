@@ -12,9 +12,8 @@ use crate::runloop::{self, Flow, Wake, send};
 use crate::settings::{EngineKind, MIN_BRIGHTNESS, Settings};
 
 /// How often Dozy re-checks the display unprompted. macOS reports display, wake, Night Shift and
-/// color filter changes as events, so there this is only a safety net for changes nobody announces.
-/// Windows has no such events wired up, so it polls.
-const RECHECK: Duration = if cfg!(target_os = "macos") { Duration::from_secs(30) } else { Duration::from_secs(2) };
+/// color filter changes as events, so this is only a safety net for changes nobody announces.
+const RECHECK: Duration = Duration::from_secs(30);
 const KELVIN_STEPS: [u16; 10] = [5500, 4500, 3800, 3400, 3000, 2700, 2300, 1900, 1500, 1200];
 const BRIGHTNESS_STEPS: [u8; 6] = [100, 85, 70, 55, 40, 25];
 
@@ -31,7 +30,6 @@ pub enum Command {
     Resume,
     LaunchAtLogin,
     KeepAwake,
-    UnlockGammaRange,
     Quit,
 }
 
@@ -49,7 +47,6 @@ impl Command {
             Command::Resume => "resume".into(),
             Command::LaunchAtLogin => "login".into(),
             Command::KeepAwake => "awake".into(),
-            Command::UnlockGammaRange => "unlock".into(),
             Command::Quit => "quit".into(),
         }
     }
@@ -68,7 +65,6 @@ impl Command {
             "resume" => Command::Resume,
             "login" => Command::LaunchAtLogin,
             "awake" => Command::KeepAwake,
-            "unlock" => Command::UnlockGammaRange,
             "quit" => Command::Quit,
             _ => return None,
         })
@@ -85,7 +81,6 @@ enum Pause {
 pub enum UserEvent {
     Command(Command),
     /// The system may have undone the look.
-    #[cfg_attr(windows, allow(dead_code))]
     Recheck,
 }
 
@@ -166,10 +161,6 @@ impl App {
                 }
             }
             Command::KeepAwake => s.keep_awake = !s.keep_awake,
-            Command::UnlockGammaRange => {
-                #[cfg(windows)]
-                crate::windows::unlock_gamma_range();
-            }
             Command::Quit => return false,
         }
         self.settings.save();
@@ -238,8 +229,8 @@ impl App {
             let _ = warmth.append(&check(Command::Kelvin(k), &format!("{k} K{}", kelvin_hint(k)), k == s.kelvin));
         }
         let _ = warmth.append(&sep());
-        let _ = warmth.append(&item(Command::Warmer, &format!("Warmer\t{}", shortcut_label("↓"))));
-        let _ = warmth.append(&item(Command::Cooler, &format!("Cooler\t{}", shortcut_label("↑"))));
+        let _ = warmth.append(&item(Command::Warmer, "Warmer\t⌃⌥⇧↓"));
+        let _ = warmth.append(&item(Command::Cooler, "Cooler\t⌃⌥⇧↑"));
         let _ = menu.append(&warmth);
 
         let dim = Submenu::new(format!("Brightness: {}%", s.brightness), true);
@@ -248,13 +239,11 @@ impl App {
         }
         let _ = menu.append(&dim);
 
-        if EngineKind::available().len() > 1 {
-            let engines = Submenu::new("Method", true);
-            for &kind in EngineKind::available() {
-                let _ = engines.append(&check(Command::Engine(kind), kind.label(), kind == s.engine));
-            }
-            let _ = menu.append(&engines);
+        let engines = Submenu::new("Method", true);
+        for kind in EngineKind::ALL {
+            let _ = engines.append(&check(Command::Engine(kind), kind.label(), kind == s.engine));
         }
+        let _ = menu.append(&engines);
 
         let pause = Submenu::new("Pause", true);
         let _ = pause.append(&item(Command::PauseFor(15), "For 15 minutes"));
@@ -264,10 +253,7 @@ impl App {
 
         let _ = menu.append(&sep());
         let _ = menu.append(&check(Command::LaunchAtLogin, "Launch at login", s.launch_at_login));
-        if cfg!(windows) {
-            let _ = menu.append(&item(Command::UnlockGammaRange, "Unlock warmer range (admin)…"));
-        }
-        let _ = menu.append(&note(&format!("Toggle: {}", shortcut_label("N"))));
+        let _ = menu.append(&note("Toggle: ⌃⌥⇧N"));
         let _ = menu.append(&sep());
         let _ = menu.append(&item(Command::Quit, "Quit Dozy"));
         menu
@@ -285,18 +271,10 @@ fn kelvin_hint(k: u16) -> &'static str {
     }
 }
 
-fn shortcut_label(key: &str) -> String {
-    if cfg!(target_os = "macos") { format!("⌃⌥⇧{key}") } else { format!("Ctrl+Alt+Shift+{key}") }
-}
-
-/// The sheep as raw RGBA from tools/make-icons.py: (width, height, jumping, standing).
-/// macOS sizes menu bar icons by height, so its sheep is wide; Windows tray icons must be square.
-#[cfg(target_os = "macos")]
+/// The sheep as raw RGBA from tools/make-icons.py: (width, height, jumping, standing). Wide, because
+/// macOS sizes menu bar icons by height.
 const TRAY_ICON: (u32, u32, &[u8], &[u8]) =
-    (56, 36, include_bytes!("../assets/tray-mac-awake.rgba"), include_bytes!("../assets/tray-mac-idle.rgba"));
-#[cfg(windows)]
-const TRAY_ICON: (u32, u32, &[u8], &[u8]) =
-    (32, 32, include_bytes!("../assets/tray-win-awake.rgba"), include_bytes!("../assets/tray-win-idle.rgba"));
+    (56, 36, include_bytes!("../assets/tray-awake.rgba"), include_bytes!("../assets/tray-idle.rgba"));
 
 /// A jumping sheep while keeping the screen awake, a standing one otherwise. Orange while warming, grey while not.
 fn icon(warm: bool, awake: bool) -> Icon {
@@ -336,17 +314,14 @@ pub fn run() {
             send(UserEvent::Command(Command::KeepAwake));
         }
     }));
-    #[cfg(target_os = "macos")]
-    {
-        extern "C" fn recheck() {
-            send(UserEvent::Recheck);
-        }
-        extern "C" fn quit() {
-            send(UserEvent::Command(Command::Quit));
-        }
-        crate::macos::watch(recheck);
-        crate::macos::on_terminate(quit);
+    extern "C" fn recheck() {
+        send(UserEvent::Recheck);
     }
+    extern "C" fn quit() {
+        send(UserEvent::Command(Command::Quit));
+    }
+    crate::macos::watch(recheck);
+    crate::macos::on_terminate(quit);
 
     let settings = Settings::load();
     let mut app = App {
@@ -398,12 +373,11 @@ mod tests {
             Command::Resume,
             Command::LaunchAtLogin,
             Command::KeepAwake,
-            Command::UnlockGammaRange,
             Command::Quit,
         ];
         commands.extend(KELVIN_STEPS.map(Command::Kelvin));
         commands.extend(BRIGHTNESS_STEPS.map(Command::Brightness));
-        commands.extend(EngineKind::available().iter().map(|&e| Command::Engine(e)));
+        commands.extend(EngineKind::ALL.map(Command::Engine));
         for c in commands {
             assert_eq!(Command::parse(&c.id()), Some(c), "{}", c.id());
         }

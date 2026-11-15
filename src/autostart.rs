@@ -1,6 +1,5 @@
-//! Launch at login, without a helper app: a LaunchAgent on macOS, the per-user Run key on Windows.
+//! Launch at login, without a helper app: a per-user LaunchAgent.
 
-#[cfg(target_os = "macos")]
 pub fn set(enabled: bool) -> std::io::Result<()> {
     let Some(home) = dirs::home_dir() else { return Ok(()) };
     let plist = home.join("Library/LaunchAgents/app.dozy.plist");
@@ -29,35 +28,4 @@ pub fn set(enabled: bool) -> std::io::Result<()> {
 "#
         ),
     )
-}
-
-#[cfg(windows)]
-pub fn set(enabled: bool) -> std::io::Result<()> {
-    use windows_sys::Win32::System::Registry::{HKEY_CURRENT_USER, REG_SZ, RegDeleteKeyValueW, RegSetKeyValueW};
-
-    let wide = |s: &str| s.encode_utf16().chain(Some(0)).collect::<Vec<u16>>();
-    let key = wide(r"Software\Microsoft\Windows\CurrentVersion\Run");
-    let name = wide("Dozy");
-    let status = if enabled {
-        let command = wide(&format!("\"{}\"", std::env::current_exe()?.display()));
-        unsafe {
-            RegSetKeyValueW(
-                HKEY_CURRENT_USER,
-                key.as_ptr(),
-                name.as_ptr(),
-                REG_SZ,
-                command.as_ptr().cast(),
-                (command.len() * 2) as u32,
-            )
-        }
-    } else {
-        match unsafe { RegDeleteKeyValueW(HKEY_CURRENT_USER, key.as_ptr(), name.as_ptr()) } {
-            2 => 0, // ERROR_FILE_NOT_FOUND: already off
-            status => status,
-        }
-    };
-    match status {
-        0 => Ok(()),
-        code => Err(std::io::Error::from_raw_os_error(code as i32)),
-    }
 }

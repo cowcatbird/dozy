@@ -8,23 +8,16 @@ use crate::color::{MIN_KELVIN, NEUTRAL_KELVIN};
 #[derive(Serialize, Deserialize, Clone, Copy, PartialEq, Eq, Debug)]
 #[serde(rename_all = "snake_case")]
 pub enum EngineKind {
-    /// macOS Night Shift, held on around the clock. Apple's color handling, but stops at 2700 K. The macOS default.
+    /// macOS Night Shift, held on around the clock. Apple's color handling, but stops at 2700 K. The default.
     NightShift,
     /// Display gamma tables, the way f.lux does it. Reaches 1200 K, can dim below minimum brightness.
-    /// The only engine on Windows.
     Gamma,
-    /// macOS Accessibility color filter (Color Tint). Applied at the very end of the pipeline.
+    /// Accessibility color filter (Color Tint). Applied at the very end of the pipeline.
     ColorFilter,
 }
 
 impl EngineKind {
-    pub const fn available() -> &'static [EngineKind] {
-        if cfg!(target_os = "macos") {
-            &[EngineKind::NightShift, EngineKind::Gamma, EngineKind::ColorFilter]
-        } else {
-            &[EngineKind::Gamma]
-        }
-    }
+    pub const ALL: [EngineKind; 3] = [EngineKind::NightShift, EngineKind::Gamma, EngineKind::ColorFilter];
 
     pub const fn label(self) -> &'static str {
         match self {
@@ -43,7 +36,7 @@ impl EngineKind {
     }
 
     pub fn from_id(id: &str) -> Option<EngineKind> {
-        Self::available().iter().copied().find(|k| k.id() == id)
+        Self::ALL.into_iter().find(|k| k.id() == id)
     }
 }
 
@@ -67,7 +60,7 @@ impl Default for Settings {
             enabled: true,
             kelvin: 2700,
             brightness: 100,
-            engine: EngineKind::available()[0],
+            engine: EngineKind::NightShift,
             launch_at_login: false,
             keep_awake: false,
         }
@@ -92,13 +85,10 @@ impl Settings {
         }
     }
 
-    /// The file is user-editable, so anything out of range or unsupported on this OS falls back to a valid value.
+    /// The file is user-editable, so anything out of range is pulled back to a valid value.
     fn sanitized(mut self) -> Settings {
         self.kelvin = self.kelvin.clamp(MIN_KELVIN, NEUTRAL_KELVIN);
         self.brightness = self.brightness.clamp(MIN_BRIGHTNESS, 100);
-        if !EngineKind::available().contains(&self.engine) {
-            self.engine = EngineKind::available()[0];
-        }
         self
     }
 }

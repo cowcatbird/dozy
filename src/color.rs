@@ -16,7 +16,6 @@ impl Look {
     }
 
     /// 0 at 6500 K, 1 at the warmest supported temperature.
-    #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
     pub fn warmth(self) -> f32 {
         let k = self.kelvin.clamp(MIN_KELVIN, NEUTRAL_KELVIN);
         f32::from(NEUTRAL_KELVIN - k) / f32::from(NEUTRAL_KELVIN - MIN_KELVIN)

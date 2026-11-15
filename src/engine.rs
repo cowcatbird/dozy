@@ -27,15 +27,9 @@ pub trait Engine {
 }
 
 pub fn create(kind: EngineKind) -> Box<dyn Engine> {
-    #[cfg(target_os = "macos")]
-    return match kind {
+    match kind {
         EngineKind::NightShift => Box::new(crate::macos::NightShift::new()),
         EngineKind::Gamma => Box::new(crate::macos::NightShiftHeldOff::new(crate::macos::Gamma::default())),
         EngineKind::ColorFilter => Box::new(crate::macos::NightShiftHeldOff::new(crate::macos::ColorFilter::new())),
-    };
-    #[cfg(windows)]
-    return match kind {
-        EngineKind::Gamma => Box::new(crate::windows::Gamma::default()),
-        other => unreachable!("{other:?} is not offered on Windows"),
-    };
+    }
 }

@@ -6,9 +6,8 @@ re-colored by how far along that line it is, against a top-to-bottom orange grad
 land between stops and stay smooth.
 
 Writes assets/dozy.png and assets/dozy-idle.png (the logos), assets/Dozy.icns (macOS app icon) and the raw
-RGBA tray icons: assets/tray-mac-{awake,idle}.rgba (wide, because macOS sizes menu bar icons by height; both
-the same width so the menu bar doesn't shift when they swap) and assets/tray-win-{awake,idle}.rgba (square,
-as Windows requires). Dozy greys them out itself while warming is off.
+RGBA menu bar icons assets/tray-{awake,idle}.rgba (wide, because macOS sizes menu bar icons by height; both
+the same width so the menu bar doesn't shift when they swap). Dozy greys them out itself while warming is off.
 Run from the repo root: python3 tools/make-icons.py
 """
 import subprocess
@@ -27,8 +26,7 @@ STOPS = [
     (0.41, (255, 209, 150), (255, 170, 110)),  # wool
     (1.00, (255, 150, 50), (240, 92, 30)),     # outline
 ]
-TRAY_MAC = (56, 36)  # 18 pt tall at 2x, wide enough for the standing sheep
-TRAY_WIN = (32, 32)
+TRAY_SIZE = (56, 36)  # 18 pt tall at 2x, wide enough for the standing sheep
 
 
 def lerp(a, b, t):
@@ -106,9 +104,8 @@ def main():
         subprocess.run(["iconutil", "-c", "icns", str(iconset), "-o", str(ASSETS / "Dozy.icns")], check=True)
     icon.resize((256, 256), Image.LANCZOS).save(ASSETS / "Dozy-256.png")
 
-    for platform, size in (("mac", TRAY_MAC), ("win", TRAY_WIN)):
-        for state, sheep in (("awake", logo), ("idle", idle)):
-            (ASSETS / f"tray-{platform}-{state}.rgba").write_bytes(tray(sheep, size))
+    for state, sheep in (("awake", logo), ("idle", idle)):
+        (ASSETS / f"tray-{state}.rgba").write_bytes(tray(sheep, TRAY_SIZE))
 
 
 if __name__ == "__main__":
