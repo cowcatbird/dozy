@@ -39,8 +39,9 @@ Install Rust from <https://rustup.rs>, then:
 ```sh
 cargo test
 cargo run --release                 # run it directly
-scripts/bundle-macos.sh             # build target/Dozy.app
-scripts/bundle-macos.sh --universal # Apple Silicon + Intel
+scripts/bundle-macos.sh              # build, install to /Applications, and open
+scripts/bundle-macos.sh --universal  # Apple Silicon + Intel
+scripts/bundle-macos.sh --no-install # only build target/Dozy.app
 ```
 
 Settings are stored as JSON in `~/Library/Application Support/Dozy/settings.json`.

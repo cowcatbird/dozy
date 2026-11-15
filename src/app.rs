@@ -324,6 +324,11 @@ pub fn run() {
     crate::macos::on_terminate(quit);
 
     let settings = Settings::load();
+    let in_app_bundle = std::env::current_exe().is_ok_and(|exe| exe.to_string_lossy().contains(".app/Contents/MacOS/"));
+    if settings.launch_at_login && in_app_bundle {
+        // Point the login item at wherever Dozy.app lives now. Bare `cargo run` builds leave it alone.
+        let _ = crate::autostart::set(true);
+    }
     let mut app = App {
         engine: engine::create(settings.engine),
         settings,

@@ -190,9 +190,28 @@ void dozy_watch(void (*callback)(void)) {
                                     CFNotificationSuspensionBehaviorDeliverImmediately);
 }
 
-// Routes SIGTERM, SIGINT and SIGHUP (kill, logout, Ctrl-C) to `callback` on the main queue
-// instead of killing the process, so Dozy can hand the display back first.
+static void (*quit_callback)(void);
+
+@interface DozyQuit : NSObject
+@end
+@implementation DozyQuit
++ (void)handle:(NSAppleEventDescriptor *)event reply:(NSAppleEventDescriptor *)reply {
+    quit_callback();
+}
+@end
+
+// Routes SIGTERM, SIGINT and SIGHUP (kill, logout, Ctrl-C) and the "quit" Apple event (logout,
+// AppleScript, Activity Monitor's Quit) to `callback` on the main queue instead of ending the
+// process, so Dozy can hand the display back first.
 void dozy_on_terminate(void (*callback)(void)) {
+    quit_callback = callback;
+    // NSApp installs its own quit handler when it finishes launching, so take it over after that.
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [NSAppleEventManager.sharedAppleEventManager setEventHandler:[DozyQuit class]
+                                                         andSelector:@selector(handle:reply:)
+                                                       forEventClass:kCoreEventClass
+                                                          andEventID:kAEQuitApplication];
+    });
     static dispatch_source_t sources[3];
     int signals[3] = {SIGTERM, SIGINT, SIGHUP};
     for (int i = 0; i < 3; i++) {

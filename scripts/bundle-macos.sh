@@ -1,11 +1,22 @@
 #!/bin/sh
-# Builds Dozy.app into target/. Pass --universal for an Apple Silicon + Intel binary.
+# Builds target/Dozy.app, installs it to /Applications and opens it.
+#   --universal   Apple Silicon + Intel binary
+#   --no-install  only build target/Dozy.app
 set -eu
 cd "$(dirname "$0")/.."
 VERSION=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)
 APP=target/Dozy.app
+UNIVERSAL=0
+INSTALL=1
+for arg in "$@"; do
+    case "$arg" in
+        --universal) UNIVERSAL=1 ;;
+        --no-install) INSTALL=0 ;;
+        *) echo "unknown option: $arg" >&2; exit 2 ;;
+    esac
+done
 
-if [ "${1:-}" = "--universal" ]; then
+if [ "$UNIVERSAL" = 1 ]; then
     cargo build --release --target aarch64-apple-darwin
     cargo build --release --target x86_64-apple-darwin
     BIN=target/dozy-universal
@@ -40,3 +51,20 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 PLIST
 codesign --force --sign - "$APP"
 echo "Built $APP"
+
+if [ "$INSTALL" = 1 ]; then
+    # Quit this user's running copy (it restores the display on the way out), then swap in the new one.
+    running() { pgrep -x -U "$(id -u)" Dozy >/dev/null; }
+    wait_quit() { i=0; while running && [ $i -lt 50 ]; do sleep 0.1; i=$((i + 1)); done; ! running; }
+    if running; then
+        osascript -e 'quit app id "app.dozy"' >/dev/null 2>&1 || true
+        wait_quit || { pkill -TERM -x -U "$(id -u)" Dozy; wait_quit; } || {
+            echo "Dozy didn't quit; quit it from the menu bar and run this again." >&2
+            exit 1
+        }
+    fi
+    rm -rf /Applications/Dozy.app
+    ditto "$APP" /Applications/Dozy.app
+    open /Applications/Dozy.app
+    echo "Installed /Applications/Dozy.app"
+fi

@@ -13,7 +13,7 @@ jobs:
       - uses: actions/checkout@v4
       - run: rustup target add aarch64-apple-darwin x86_64-apple-darwin
       - run: cargo test
-      - run: scripts/bundle-macos.sh --universal
+      - run: scripts/bundle-macos.sh --universal --no-install
       - run: ditto -c -k --keepParent target/Dozy.app Dozy-macos.zip
       - uses: actions/upload-artifact@v4
         with:
