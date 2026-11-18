@@ -8,6 +8,7 @@ use crate::engine::{Engine, Health};
 struct NightShiftState {
     available: bool,
     enabled: bool,
+    held: bool,
     strength: f32,
     min_kelvin: f32,
     max_kelvin: f32,
@@ -25,6 +26,7 @@ struct FilterState {
 unsafe extern "C" {
     fn dozy_ns_read(out: *mut NightShiftState) -> bool;
     fn dozy_ns_set_enabled(enabled: bool) -> bool;
+    fn dozy_ns_hold_on() -> bool;
     fn dozy_ns_set_strength(strength: f32) -> bool;
     fn dozy_displays(ids: *mut u32, max: u32) -> u32;
     fn dozy_gamma_get(display: u32, gains: *mut f32) -> bool;
@@ -86,8 +88,8 @@ impl Engine for NightShift {
         if (now.strength - strength).abs() > 0.005 {
             unsafe { dozy_ns_set_strength(strength) };
         }
-        if !now.enabled {
-            unsafe { dozy_ns_set_enabled(true) };
+        if !now.enabled || !now.held {
+            unsafe { dozy_ns_hold_on() };
         }
 
         if f32::from(look.kelvin) < now.min_kelvin {

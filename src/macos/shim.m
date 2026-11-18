@@ -26,8 +26,14 @@ typedef struct { float min; float max; float mid; } CBRange;
 - (BOOL)getStrength:(float *)strength;
 - (BOOL)getCCTRange:(CBRange *)range;
 - (BOOL)setEnabled:(BOOL)enabled;
+- (BOOL)setEnabled:(BOOL)enabled withOption:(int)option;
 - (BOOL)setStrength:(float)strength commit:(BOOL)commit;
 - (void)setStatusNotificationBlock:(void (^)(void))block;
+- (BOOL)parseStatusDictionary:(NSDictionary *)dict intoStruct:(CBStatus *)status;
+@end
+
+@protocol DozyBrightnessSystemClient
+- (id)copyPropertyForKey:(NSString *)key;
 @end
 
 static id<DozyBlueLightClient> blue_light(void) {
@@ -44,10 +50,26 @@ static id<DozyBlueLightClient> blue_light(void) {
 typedef struct {
     bool available;
     bool enabled;
+    // On with no end time. Switching Night Shift on the usual way ends at the next morning (7:00 or
+    // sunrise) with a fade that starts a couple of minutes early, while it still reports enabled.
+    bool held;
     float strength;
     float min_kelvin;
     float max_kelvin;
 } DozyNightShift;
+
+enum { OVERRIDE_HELD = 2, ENABLE_HELD = 1 };
+
+// One round trip to the Night Shift service for both the status and the override kind.
+static NSDictionary *copy_status(id<DozyBlueLightClient> c) {
+    @try {
+        id<DozyBrightnessSystemClient> bsc = [(NSObject *)c valueForKey:@"bsc"];
+        id status = [bsc copyPropertyForKey:@"CBBlueReductionStatus"];
+        return [status isKindOfClass:NSDictionary.class] ? status : nil;
+    } @catch (NSException *e) {
+        return nil;
+    }
+}
 
 bool dozy_ns_read(DozyNightShift *out) {
     id<DozyBlueLightClient> c = blue_light();
@@ -55,13 +77,19 @@ bool dozy_ns_read(DozyNightShift *out) {
     CBStatus status = {0};
     CBRange range = {0};
     float strength = 0;
-    if (![c getBlueLightStatus:&status] || ![c getStrength:&strength]) return false;
+    NSDictionary *dict = copy_status(c);
+    if (!(dict && [c parseStatusDictionary:dict intoStruct:&status]) && ![c getBlueLightStatus:&status]) return false;
+    if (![c getStrength:&strength]) return false;
     if (![c getCCTRange:&range] || range.min <= 0) range = (CBRange){2700, 6000, 4100};
-    *out = (DozyNightShift){status.available, status.enabled, strength, range.min, range.max};
+    // An unreadable override means an unknown macOS. Claim held so Dozy doesn't re-enable on every status change.
+    NSNumber *override = dict[@"BlueLightReductionAlgoOverride"];
+    bool held = ![override isKindOfClass:NSNumber.class] || override.intValue == OVERRIDE_HELD;
+    *out = (DozyNightShift){status.available, status.enabled, held, strength, range.min, range.max};
     return true;
 }
 
 bool dozy_ns_set_enabled(bool enabled) { return [blue_light() setEnabled:enabled]; }
+bool dozy_ns_hold_on(void) { return [blue_light() setEnabled:YES withOption:ENABLE_HELD]; }
 bool dozy_ns_set_strength(float strength) { return [blue_light() setStrength:strength commit:YES]; }
 
 // ---- Gamma (public CoreGraphics) ----
